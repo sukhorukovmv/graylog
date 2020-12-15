@@ -1,0 +1,91 @@
+---
+
+- hosts: all
+  become: true
+
+  tasks:
+  - name: install openjdk-8 
+    apt: 
+      name: openjdk-8-jdk 
+      state: present
+
+  - name: MongoDB repo (Ubuntu)
+    apt_key:
+      url: https://www.mongodb.org/static/pgp/server-4.4.asc
+      state: present
+
+  - name: Add MongoDB repository
+    apt_repository: 
+      repo: 'deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse'
+      state: present
+      update_cache: True
+
+  - name: install mongodb
+    apt: pkg=mongodb-org state=present update_cache=yes
+
+  - name: MongoDB service file should be installed
+    template:
+      src: "../templates/mongodb.service-Debian.j2"
+      dest: "/lib/systemd/system/mongod.service"
+      owner: "root"
+      group: "root"
+      mode: 0644
+
+  - name: reload systemd configuration
+    systemd:
+      daemon_reload: yes
+
+  - name: MongoDB configured
+    template:
+      src: "../templates/mongodb.conf.j2"
+      dest: "/etc/mongod.conf"
+      owner: "root"
+      group: "root"
+      mode: 0644
+
+  - name: MongoDB restart
+    service:
+      name: mongod
+      state: "restarted"
+      enabled: "yes"
+
+  ###elastic install
+  - name: get apt repo key
+    apt_key:
+      url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+      state: present
+
+  - name: install apt repo
+    apt_repository:
+      repo: deb https://artifacts.elastic.co/packages/6.x/apt stable main
+      state: present
+      filename: elastic-6.x.list
+      update_cache: yes
+
+  - name: install elasticsearch
+    apt:
+      name: elasticsearch
+      state: present
+      update_cache: yes
+
+  - name: reload systemd config
+    systemd: daemon_reload=yes
+
+  - name: enable service elasticsearch and ensure it is not masked
+    systemd:
+      name: elasticsearch
+      enabled: yes
+      masked: no
+
+  ### graylog
+  - name: Graylog repository downloaded
+    get_url:
+      url: "https://packages.graylog2.org/repo/packages/graylog-4.0-repository_latest.deb"
+      dest: "/tmp/graylog_4.0_repository.deb"
+
+  - name: Graylog install
+    apt:
+      deb: "/tmp/graylog_4.0_repository.deb"
+      state: present
+      dpkg_options: "force-all"
+
